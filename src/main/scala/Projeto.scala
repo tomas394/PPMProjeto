@@ -58,7 +58,7 @@ object AtariGo {
         print(symbol + " ")
       }
       println()
-    }
+    }  
   }
 
   def main(args: Array[String]): Unit = {
