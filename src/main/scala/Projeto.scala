@@ -35,8 +35,6 @@ object AtariGo {
     }
   }
 
-  def gg vv
-
   def playRandomly(board: Board, r: MyRandom, player: Stone.Value, lstOpenCoords: List[Coord2D],
                    f: (List[Coord2D], MyRandom) => (Coord2D, MyRandom)): (Board, MyRandom, List[Coord2D]) = {
     val (coord, newRand) = f(lstOpenCoords, r)
