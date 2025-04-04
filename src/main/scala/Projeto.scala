@@ -63,37 +63,37 @@ object AtariGo {
   }
 
   def main(args: Array[String]): Unit = {
-    val size = 3
-    val initialBoard: Board = List.fill(size)(List.fill(size)(Stone.Empty))
-    val initialLstOpenCoords: List[Coord2D] = (for {
+    val size = 7
+    var board: Board = List.fill(size)(List.fill(size)(Stone.Empty))
+    var lstOpenCoords: List[Coord2D] = (for {
       row <- 0 until size
       col <- 0 until size
     } yield (row, col)).toList
 
-    val rand = MyRandom(42)
+    var rand = MyRandom(System.currentTimeMillis())
+    var player = Stone.Black
 
-    // Teste 1: Jogador Preto joga na posição (1,1)
-    val (board1, openCoords1) = play(initialBoard, Stone.Black, (1,1), initialLstOpenCoords)
-    println("Teste 1: Jogador Preto joga na posição (1,1)")
-    printBoard(board1.getOrElse(initialBoard))
-    println()
+    while (lstOpenCoords.nonEmpty) {
+      printBoard(board)
+      println(s"Player $player, enter row and column (e.g., 3 4):")
+      val input = scala.io.StdIn.readLine()
+      val coords = input.split(" ").map(_.toInt)
+      if (coords.length == 2) {
+        val coord = (coords(0), coords(1))
+        val (maybeNewBoard, newLstOpenCoords) = play(board, player, coord, lstOpenCoords)
+        maybeNewBoard match {
+          case Some(newBoard) =>
+            board = newBoard
+            lstOpenCoords = newLstOpenCoords
+            player = if (player == Stone.Black) Stone.White else Stone.Black
+          case None => println("Invalid move! Try again.")
+        }
+      } else {
+        println("Invalid input! Please enter two numbers separated by space.")
+      }
+    }
 
-    // Teste 2: Jogador Branco joga na posição (0,0)
-    val (board2, openCoords2) = play(board1.getOrElse(initialBoard), Stone.White, (0,0), openCoords1)
-    println("Teste 2: Jogador Branco joga na posição (0,0)")
-    printBoard(board2.getOrElse(initialBoard))
-    println()
-
-    // Teste 3: Jogador Preto tenta jogar novamente em (1,1) (inválido)
-    val (board3, openCoords3) = play(board2.getOrElse(initialBoard), Stone.Black, (1,1), openCoords2)
-    println("Teste 3: Jogador Preto tenta jogar novamente em (1,1) (inválido)")
-    printBoard(board3.getOrElse(initialBoard))
-    println("(Esperado: mesma saída do Teste 2)")
-    println()
-
-    // Teste 4: Jogada aleatória
-    val (randomBoard, _, _) = playRandomly(board2.getOrElse(initialBoard), rand, Stone.Black, openCoords2, randomMove)
-    println("Teste 4: Jogador Preto faz uma jogada aleatória")
-    printBoard(randomBoard)
+    println("Game over!")
+    printBoard(board)
   }
 }
