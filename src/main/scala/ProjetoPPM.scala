@@ -40,7 +40,7 @@ object AtariGo2 {
     }
   }
 
-  def playRandomly(board: Board, r: MyRandom, player: Stone.Value, lstOpenCoords: List[Coord2D],                      // T3
+  def playRandomly(board: Board, r: MyRandom, player: Stone.Value, lstOpenCoords: List[Coord2D], // T3
                    f: (List[Coord2D], MyRandom) => (Coord2D, MyRandom)): (Board, MyRandom, List[Coord2D]) = {
     // Obtém uma coordenada aleatória válida para a jogada
     val (coord, newRand) = f(lstOpenCoords, r)
@@ -73,27 +73,31 @@ object AtariGo2 {
     }
   }
 
-  // Função principal simplificada
+  def generateCoords(size: Int, row: Int = 0, col: Int = 0, acc: List[Coord2D] = List()): List[Coord2D] = {
+    if (row >= size) acc // Se já processamos todas as linhas, retorna a lista acumulada
+    else if (col >= size) generateCoords(size, row + 1, 0, acc) // Se chegou ao final da linha, passa para a próxima
+    else generateCoords(size, row, col + 1, acc :+ (row, col)) // Adiciona a coordenada e avança na mesma linha
+  }
+
   def main(args: Array[String]): Unit = {
     val size = 3 // Define o tamanho do tabuleiro 3x3
     val initialBoard: Board = List.fill(size)(List.fill(size)(Stone.Empty)) // Cria um tabuleiro vazio
-    val initialLstOpenCoords: List[Coord2D] = (for {
-      row <- 0 until size
-      col <- 0 until size
-    } yield (row, col)).toList // Cria a lista de coordenadas disponíveis
+
+    // Cria a lista de coordenadas disponíveis usando a função recursiva
+    val initialLstOpenCoords: List[Coord2D] = generateCoords(size)
 
     val rand = MyRandom(42) // Inicializa o gerador aleatório
 
     // Jogador Preto joga na posição (1,1)
-    val (board1, openCoords1) = play(initialBoard, Stone.Black, (1,1), initialLstOpenCoords)
+    val (board1, openCoords1) = play(initialBoard, Stone.Black, (1, 1), initialLstOpenCoords)
     printBoard(board1.getOrElse(initialBoard))
 
     // Jogador Branco joga na posição (0,0)
-    val (board2, openCoords2) = play(board1.getOrElse(initialBoard), Stone.White, (0,0), openCoords1)
+    val (board2, openCoords2) = play(board1.getOrElse(initialBoard), Stone.White, (0, 0), openCoords1)
     printBoard(board2.getOrElse(initialBoard))
   }
-}
 
+}
 
 
 // A função getOrElse é usada para obter o valor dentro de um Option, ou um valor padrão caso seja None.
