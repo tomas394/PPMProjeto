@@ -73,17 +73,19 @@ object AtariGo2 {
     }
   }
 
-  def generateCoords(size: Int, row: Int = 0, col: Int = 0, acc: List[Coord2D] = List()): List[Coord2D] = {
-    if (row >= size) acc // Se já processamos todas as linhas, retorna a lista acumulada
-    else if (col >= size) generateCoords(size, row + 1, 0, acc) // Se chegou ao final da linha, passa para a próxima
-    else generateCoords(size, row, col + 1, acc :+ (row, col)) // Adiciona a coordenada e avança na mesma linha
+  def generateCoords(size: Int): List[Coord2D] = {    //FOLD RIGHT
+    List.range(0, size).foldRight(List[Coord2D]()) { (row, accRows) =>
+      List.range(0, size).foldRight(accRows) { (col, accCols) =>
+        (row, col) :: accCols
+      }
+    }
   }
 
   def main(args: Array[String]): Unit = {
     val size = 3 // Define o tamanho do tabuleiro 3x3
     val initialBoard: Board = List.fill(size)(List.fill(size)(Stone.Empty)) // Cria um tabuleiro vazio
 
-    // Cria a lista de coordenadas disponíveis usando a função recursiva
+    // Cria a lista de coordenadas disponíveis usando foldRight
     val initialLstOpenCoords: List[Coord2D] = generateCoords(size)
 
     val rand = MyRandom(42) // Inicializa o gerador aleatório
@@ -96,6 +98,7 @@ object AtariGo2 {
     val (board2, openCoords2) = play(board1.getOrElse(initialBoard), Stone.White, (0, 0), openCoords1)
     printBoard(board2.getOrElse(initialBoard))
   }
+
 
 }
 
