@@ -8,10 +8,10 @@ object AtariGoPPM {
 
   case class MyRandom(seed: Long) {
     def nextInt(n: Int): (Int, MyRandom) = {
-      val newSeed = (seed * 0x5DEECE66DL + 0xBL) & 0xFFFFFFFFFFFFL
-      val nextRand = MyRandom(newSeed)
-      val number = (newSeed >>> 16).toInt % n
-      (number, nextRand)
+        val newSeed = (seed * 0x5DEECE66DL + 0xBL) & 0xFFFFFFFFFFFFL
+        val nextRand = MyRandom(newSeed)
+        val number = (newSeed >>> 16).toInt % n
+        (number, nextRand)
     }
   }
   type Coord2D = (Int, Int) 
@@ -33,6 +33,8 @@ object AtariGoPPM {
       (Some(newBoard), newOpenCoords)
     }
   }
+
+
 
 
 }

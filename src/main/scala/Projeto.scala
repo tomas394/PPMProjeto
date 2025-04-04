@@ -11,10 +11,11 @@ object AtariGo {
     def nextInt(n: Int): (Int, MyRandom) = {
       val newSeed = (seed * 0x5DEECE66DL + 0xBL) & 0xFFFFFFFFFFFFL
       val nextRand = MyRandom(newSeed)
-      val number = (newSeed >>> 16).toInt % n
+      val number = ((newSeed >>> 16).toInt.abs) % n  // Correção aqui
       (number, nextRand)
     }
   }
+
 
   def randomMove(lstOpenCoords: List[Coord2D], rand: MyRandom): (Coord2D, MyRandom) = {
     val size = lstOpenCoords.size
@@ -62,7 +63,7 @@ object AtariGo {
   }
 
   def main(args: Array[String]): Unit = {
-    val size = 5
+    val size = 7
     val initialBoard: Board = List.fill(size)(List.fill(size)(Stone.Empty))
     val initialLstOpenCoords: List[Coord2D] = (for {
       row <- 0 until size
