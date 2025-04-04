@@ -63,15 +63,37 @@ object AtariGo {
   }
 
   def main(args: Array[String]): Unit = {
-    val size = 7
+    val size = 3
     val initialBoard: Board = List.fill(size)(List.fill(size)(Stone.Empty))
     val initialLstOpenCoords: List[Coord2D] = (for {
       row <- 0 until size
       col <- 0 until size
     } yield (row, col)).toList
 
-    val rand = MyRandom(System.currentTimeMillis())
-    val (newBoard, newRand, newLstOpenCoords) = playRandomly(initialBoard, rand, Stone.Black, initialLstOpenCoords, randomMove)
-    printBoard(newBoard)
+    val rand = MyRandom(42)
+
+    // Teste 1: Jogador Preto joga na posição (1,1)
+    val (board1, openCoords1) = play(initialBoard, Stone.Black, (1,1), initialLstOpenCoords)
+    println("Teste 1: Jogador Preto joga na posição (1,1)")
+    printBoard(board1.getOrElse(initialBoard))
+    println()
+
+    // Teste 2: Jogador Branco joga na posição (0,0)
+    val (board2, openCoords2) = play(board1.getOrElse(initialBoard), Stone.White, (0,0), openCoords1)
+    println("Teste 2: Jogador Branco joga na posição (0,0)")
+    printBoard(board2.getOrElse(initialBoard))
+    println()
+
+    // Teste 3: Jogador Preto tenta jogar novamente em (1,1) (inválido)
+    val (board3, openCoords3) = play(board2.getOrElse(initialBoard), Stone.Black, (1,1), openCoords2)
+    println("Teste 3: Jogador Preto tenta jogar novamente em (1,1) (inválido)")
+    printBoard(board3.getOrElse(initialBoard))
+    println("(Esperado: mesma saída do Teste 2)")
+    println()
+
+    // Teste 4: Jogada aleatória
+    val (randomBoard, _, _) = playRandomly(board2.getOrElse(initialBoard), rand, Stone.Black, openCoords2, randomMove)
+    println("Teste 4: Jogador Preto faz uma jogada aleatória")
+    printBoard(randomBoard)
   }
 }
