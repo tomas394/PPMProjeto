@@ -85,12 +85,11 @@ object AtariGo {
     println()
 
     // Teste 3: Jogador Preto tenta jogar novamente em (1,1) (inválido)
-    val (board3, openCoords3) = play(board2.getOrElse(initialBoard), Stone.Black, (1, 1), openCoords2)
+    val (board3, openCoords3) = play(board2.getOrElse(initialBoard), Stone.Black, (1,1), openCoords2)
     println("Teste 3: Jogador Preto tenta jogar novamente em (1,1) (inválido)")
-    printBoard(board3.getOrElse(board2.get)) // Mantém o último estado válido
+    printBoard(board3.getOrElse(initialBoard))
     println("(Esperado: mesma saída do Teste 2)")
     println()
-
 
     // Teste 4: Jogada aleatória
     val (randomBoard, _, _) = playRandomly(board2.getOrElse(initialBoard), rand, Stone.Black, openCoords2, randomMove)
