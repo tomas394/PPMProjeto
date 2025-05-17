@@ -1,4 +1,4 @@
-object AtariGo2 {
+object Game {
 
   type Board = List[List[Stone.Value]]
   type Coord2D = (Int, Int)
@@ -73,12 +73,16 @@ object AtariGo2 {
     }
   }
 
-  def generateCoords(size: Int): List[Coord2D] = {    //FOLD RIGHT
+  def generateCoords(size: Int): List[Coord2D] = { //FOLD RIGHT
     List.range(0, size).foldRight(List[Coord2D]()) { (row, accRows) =>
       List.range(0, size).foldRight(accRows) { (col, accCols) =>
         (row, col) :: accCols
       }
     }
+  }
+
+  def captureGroupStones(board: Board, player: Stone.Value): (Board , Int) = {
+    
   }
 
   def main(args: Array[String]): Unit = {
@@ -94,6 +98,7 @@ object AtariGo2 {
     val (board1, openCoords1) = play(initialBoard, Stone.Black, (1, 1), initialLstOpenCoords)
     printBoard(board1.getOrElse(initialBoard))
 
+    println()
     // Jogador Branco joga na posição (0,0)
     val (board2, openCoords2) = play(board1.getOrElse(initialBoard), Stone.White, (0, 0), openCoords1)
     printBoard(board2.getOrElse(initialBoard))
