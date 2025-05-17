@@ -2,7 +2,7 @@ object Game {
 
   type Board = List[List[Stone.Value]]
   type Coord2D = (Int, Int)
-  val CaptureLimit = 3
+  val CaptureLimit = 5
 
   object Stone extends Enumeration {
     type Stone = Value
