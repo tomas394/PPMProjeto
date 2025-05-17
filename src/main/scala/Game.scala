@@ -74,7 +74,7 @@ object Game {
   }
 
   def main(args: Array[String]): Unit = {
-    val size = 8
+    val size = 9
     var board: Board = List.fill(size)(List.fill(size)(Stone.Empty))
     var lstOpenCoords: List[Coord2D] = generateCoords(size)
     var rand = MyRandom(42)
