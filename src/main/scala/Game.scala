@@ -60,54 +60,104 @@ object Game {
     }
   }
 
-  def play(board: Board, player: Stone.Value, coord: Coord2D, lstOpenCoords: List[Coord2D]): (Board, List[Coord2D]) = {
+  def play(board: Board, player: Stone.Value, coord: Coord2D, lstOpenCoords: List[Coord2D]): (Board, List[Coord2D]) =
     if (!lstOpenCoords.contains(coord)) {
       println("Jogada inválida.")
       (board, lstOpenCoords)
     } else {
-      val (row, col) = coord
-      val newRow = board(row).updated(col, player)
-      val newBoard = board.updated(row, newRow)
-      val newLstOpenCoords = lstOpenCoords.filterNot(_ == coord)
-      (newBoard, newLstOpenCoords)
+      val (r, c)    = coord
+      val newRow    = board(r).updated(c, player)
+      val newBoard  = board.updated(r, newRow)
+      val newCoords = lstOpenCoords.filterNot(_ == coord)
+      (newBoard, newCoords)
     }
+
+  def captureGroupStones(board: Board, player: Stone.Value): (Board, Int) = {
+    val opponent = if (player == Stone.Black) Stone.White else Stone.Black
+    val size = board.length
+    val visited = Array.fill(size, size)(false)
+
+    def inBounds(r: Int, c: Int): Boolean =
+      r >= 0 && c >= 0 && r < size && c < size
+
+    def dfs(start: Coord2D): (Set[Coord2D], Boolean) = {
+      val stack = collection.mutable.Stack(start)
+      val group = collection.mutable.Set[Coord2D]()
+      var hasLiberty = false
+
+      while (stack.nonEmpty) {
+        val (r, c) = stack.pop()
+        if (!visited(r)(c)) {
+          visited(r)(c) = true
+          group += ((r, c))
+          val neigh = List((r - 1, c), (r + 1, c), (r, c - 1), (r, c + 1))
+          neigh.foreach { case (nr, nc) =>
+            if (inBounds(nr, nc)) {
+              board(nr)(nc) match {
+                case Stone.Empty => hasLiberty = true
+                case s if s == opponent && !visited(nr)(nc) => stack.push((nr, nc))
+                case _ =>
+              }
+            }
+          }
+        }
+      }
+      (group.toSet, !hasLiberty)
+    }
+
+    val captured = collection.mutable.Set[Coord2D]()
+    for {
+      r <- 0 until size
+      c <- 0 until size
+      if board(r)(c) == opponent && !visited(r)(c)
+    } {
+      val (grp, surrounded) = dfs((r, c))
+      if (surrounded) captured ++= grp
+    }
+
+    val newBoard = board.zipWithIndex.map { case (row, r) =>
+      row.zipWithIndex.map { case (s, c) =>
+        if (captured((r, c))) Stone.Empty else s
+      }
+    }
+
+    (newBoard, captured.size)
   }
 
   def main(args: Array[String]): Unit = {
     val size = 9
-    var board: Board = List.fill(size)(List.fill(size)(Stone.Empty))
-    var lstOpenCoords: List[Coord2D] = generateCoords(size)
+    var board = List.fill(size)(List.fill(size)(Stone.Empty))
+    var lstOpenCoords = generateCoords(size)
     var rand = MyRandom(42)
     var currentPlayer = Stone.Black
 
-    println("=== Bem-vindo ao jogo ===")
-    println("Tu és o jogador Preto (B). O computador joga com as peças Brancas (W).")
+    println("=== Bem‑vindo ao jogo ===")
+    println("Jogador Preto (B) vs Computador Branco (W)")
 
     while (lstOpenCoords.nonEmpty) {
       printBoard(board)
 
-      val (coord, updatedRand) =
-        if (currentPlayer == Stone.Black) {
-          val userCoord = getUserMove(currentPlayer)
-          (userCoord, rand)
-        } else {
-          val (pcCoord, newRand) = randomMove(lstOpenCoords, rand)
-          println(s"\nComputador (Branco - W) jogou em: ${pcCoord._1}, ${pcCoord._2}")
-          (pcCoord, newRand)
+      val (coord, nextRand) =
+        if (currentPlayer == Stone.Black) (getUserMove(currentPlayer), rand)
+        else {
+          val (pc, r2) = randomMove(lstOpenCoords, rand)
+          println(s"\nComputador (W) jogou: ${pc._1} ${pc._2}")
+          (pc, r2)
         }
 
-      val (newBoard, newCoords) = play(board, currentPlayer, coord, lstOpenCoords)
+      val (tmpBoard, tmpCoords) = play(board, currentPlayer, coord, lstOpenCoords)
 
-      // Apenas mudar de jogador se a jogada foi válida
-      if (newBoard != board) {
-        board = newBoard
-        lstOpenCoords = newCoords
+      if (tmpBoard != board) {
+        val (afterCapture, captured) = captureGroupStones(tmpBoard, currentPlayer)
+        if (captured > 0) println(s"Capturadas $captured peças!")
+        board = afterCapture
+        lstOpenCoords = tmpCoords
         currentPlayer = if (currentPlayer == Stone.Black) Stone.White else Stone.Black
-        rand = updatedRand
+        rand = nextRand
       }
     }
 
     printBoard(board)
-    println("\nO tabuleiro está cheio. Fim do jogo.")
+    println("\nTabuleiro cheio. Fim de jogo.")
   }
 }
