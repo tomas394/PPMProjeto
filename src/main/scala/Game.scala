@@ -49,20 +49,27 @@ object Game {
     }
   }
 
-  def getUserMove(player: Stone.Value): Coord2D = {
-    println(s"\nJogador ${if (player == Stone.Black) "Preto (B)" else "Branco (W)"}: Introduz as coordenadas (linha e coluna) separadas por espaço:")
-    val input = scala.io.StdIn.readLine()
-    val parts = input.trim.split(" ")
-    if (parts.length != 2 || !parts.forall(_.forall(_.isDigit))) {
-      println("Entrada inválida. Tenta novamente.")
-      getUserMove(player)
+  def getUserMove(player: Stone.Value, lstOpenCoords: List[Coord2D], rand: MyRandom): (Coord2D, MyRandom) = {
+    println(s"\nJogador ${if (player == Stone.Black) "Preto (B)" else "Branco (W)"}: Introduz as coordenadas (linha e coluna), ou 'r' para jogada aleatória:")
+    val input = scala.io.StdIn.readLine().trim
+
+    if (input.toLowerCase == "r") {
+      val (coord, newRand) = randomMove(lstOpenCoords, rand)
+      println(s"Jogada aleatória: ${coord._1} ${coord._2}")
+      (coord, newRand)
     } else {
-      (parts(0).toInt, parts(1).toInt)
+      val parts = input.split(" ")
+      if (parts.length != 2 || !parts.forall(_.forall(_.isDigit))) {
+        println("Entrada inválida. Tenta novamente.")
+        getUserMove(player, lstOpenCoords, rand)
+      } else {
+        ((parts(0).toInt, parts(1).toInt), rand)
+      }
     }
   }
 
-  def play(board: Board, player: Stone.Value, coord: Coord2D, lstOpenCoords: List[Coord2D]): (Board, List[Coord2D]) = {
-    if (!lstOpenCoords.contains(coord)) {
+  def play(board: Board, player: Stone.Value, coord: Coord2D, lstOpenCoords: List[Coord2D], forbiddenCoords: Set[Coord2D]): (Board, List[Coord2D]) = {
+    if (!lstOpenCoords.contains(coord) || forbiddenCoords.contains(coord)) {
       println("Jogada inválida.")
       (board, lstOpenCoords)
     } else {
@@ -131,57 +138,15 @@ object Game {
     (newBoard, captured.size)
   }
 
-  def checkWin(board: Board, player: Stone.Value): Boolean = {
-    val size = board.length
-    val visited = Array.fill(size, size)(false)
-
-    def inBounds(r: Int, c: Int): Boolean =
-      r >= 0 && c >= 0 && r < size && c < size
-
-    def dfs(start: Coord2D): Boolean = {
-      val stack = collection.mutable.Stack(start)
-      var hasLiberty = false
-
-      while (stack.nonEmpty) {
-        val (r, c) = stack.pop()
-        if (!visited(r)(c)) {
-          visited(r)(c) = true
-          val neighbors = List((r - 1, c), (r + 1, c), (r, c - 1), (r, c + 1))
-          neighbors.foreach { case (nr, nc) =>
-            if (inBounds(nr, nc)) {
-              board(nr)(nc) match {
-                case Stone.Empty => hasLiberty = true
-                case s if s == player && !visited(nr)(nc) =>
-                  stack.push((nr, nc))
-                case _ => // do nothing
-              }
-            }
-          }
-        }
-      }
-
-      !hasLiberty
-    }
-
-    for {
-      r <- 0 until size
-      c <- 0 until size
-      if board(r)(c) == player && !visited(r)(c)
-    } {
-      if (dfs((r, c))) return true
-    }
-
-    false
-  }
-
   def main(args: Array[String]): Unit = {
     val size = 9
     var board: Board = List.fill(size)(List.fill(size)(Stone.Empty))
     var lstOpenCoords = generateCoords(size)
     var rand = MyRandom(42)
     var currentPlayer = Stone.Black
-    var capturedBlack = 0 // peças que o Preto capturou
-    var capturedWhite = 0 // peças que o Branco capturou
+    var capturedBlack = 0
+    var capturedWhite = 0
+    var forbiddenCoords = Set.empty[Coord2D]
     var gameOver = false
 
     println("=== Bem‑vindo ao jogo ===")
@@ -191,29 +156,36 @@ object Game {
     while (lstOpenCoords.nonEmpty && !gameOver) {
       printBoard(board)
 
-      /* --- escolher jogada --- */
       val (coord, nextRand) =
-        if (currentPlayer == Stone.Black) (getUserMove(currentPlayer), rand)
+        if (currentPlayer == Stone.Black)
+          getUserMove(currentPlayer, lstOpenCoords.filterNot(forbiddenCoords.contains), rand)
         else {
-          val (pc, r2) = randomMove(lstOpenCoords, rand)
+          val validCoords = lstOpenCoords.filterNot(forbiddenCoords.contains)
+          val (pc, r2) = randomMove(validCoords, rand)
           println(s"\nComputador (W) jogou: ${pc._1} ${pc._2}")
           (pc, r2)
         }
 
-      val (tmpBoard, tmpCoords) = play(board, currentPlayer, coord, lstOpenCoords)
+      val (tmpBoard, tmpCoords) = play(board, currentPlayer, coord, lstOpenCoords, forbiddenCoords)
 
-      if (tmpBoard != board) { // jogada válida
+      if (tmpBoard != board) {
         val (afterCapture, capturedNow) = captureGroupStones(tmpBoard, currentPlayer)
 
-        // actualizar contadores
         if (capturedNow > 0) {
+          val capturedPositions = for {
+            r <- 0 until size
+            c <- 0 until size
+            if board(r)(c) != Stone.Empty && afterCapture(r)(c) == Stone.Empty
+          } yield (r, c)
+          forbiddenCoords ++= capturedPositions.toSet
+
           if (currentPlayer == Stone.Black) capturedBlack += capturedNow
           else capturedWhite += capturedNow
+
           println(s"Capturadas $capturedNow peça(s)!")
           println(s"Total capturas – Preto: $capturedBlack  |  Branco: $capturedWhite")
         }
 
-        // verificar condição de vitória por capturas
         if (capturedBlack >= CaptureLimit) {
           println("\n*** Parabéns! Jogador Preto venceu por capturas! ***")
           gameOver = true
