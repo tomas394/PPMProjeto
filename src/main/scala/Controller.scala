@@ -10,7 +10,7 @@ class Controller {
 
 
   def onButton1Clicked(): Unit = {
-    textField1.setText("Hello World")
+    textField1.setText("Joga Bonito")
   }
 }
 
