@@ -1,3 +1,5 @@
+import Game.Stone.Stone
+
 object Game {
 
   type Board = List[List[Stone.Value]]
@@ -145,73 +147,95 @@ object Game {
     (newBoard, capturedStones.size)
   }
 
+  def run(
+           size: Int,
+           board: List[List[Stone]],
+           lstOpenCoords: List[Coord2D],
+           rand: MyRandom,
+           currentPlayer: Stone,
+           capturedBlack: Int,
+           capturedWhite: Int,
+           forbiddenCoords: Set[Coord2D]
+         ): Unit = {
 
-  def main(args: Array[String]): Unit = {
-    val size = 9
-    var board: Board = List.fill(size)(List.fill(size)(Stone.Empty))
-    var lstOpenCoords = generateCoords(size)
-    var rand = MyRandom(42)
-    var currentPlayer = Stone.Black
-    var capturedBlack = 0
-    var capturedWhite = 0
-    var forbiddenCoords = Set.empty[Coord2D]
+    var gameBoard = board
+    var openCoords = lstOpenCoords
+    var random = rand
+    var player = currentPlayer
+    var blackCaptures = capturedBlack
+    var whiteCaptures = capturedWhite
+    var forbidden = forbiddenCoords
     var gameOver = false
 
     println("=== Bem‑vindo ao jogo ===")
     println("Preto (B) és tu; Computador é Branco (W)")
     println(s"Quem capturar $CaptureLimit peças primeiro vence.\n")
 
-    while (lstOpenCoords.nonEmpty && !gameOver) {
-      printBoard(board)
+    while (openCoords.nonEmpty && !gameOver) {
+      printBoard(gameBoard)
 
       val (coord, nextRand) =
-        if (currentPlayer == Stone.Black)
-          getUserMove(currentPlayer, lstOpenCoords.filterNot(forbiddenCoords.contains), rand)
+        if (player == Stone.Black)
+          getUserMove(player, openCoords.filterNot(forbidden.contains), random)
         else {
-          val validCoords = lstOpenCoords.filterNot(forbiddenCoords.contains)
-          val (pc, r2) = randomMove(validCoords, rand)
+          val validCoords = openCoords.filterNot(forbidden.contains)
+          val (pc, r2) = randomMove(validCoords, random)
           println(s"\nComputador (W) jogou: ${pc._1} ${pc._2}")
           (pc, r2)
         }
 
-      val (tmpBoard, tmpCoords) = play(board, currentPlayer, coord, lstOpenCoords, forbiddenCoords)
+      val (tmpBoard, tmpCoords) = play(gameBoard, player, coord, openCoords, forbidden)
 
-      if (tmpBoard != board) {
-        val (afterCapture, capturedNow) = captureGroupStones(tmpBoard, currentPlayer)
+      if (tmpBoard != gameBoard) {
+        val (afterCapture, capturedNow) = captureGroupStones(tmpBoard, player)
 
         if (capturedNow > 0) {
           val capturedPositions = for {
             r <- 0 until size
             c <- 0 until size
-            if board(r)(c) != Stone.Empty && afterCapture(r)(c) == Stone.Empty
+            if gameBoard(r)(c) != Stone.Empty && afterCapture(r)(c) == Stone.Empty
           } yield (r, c)
-          forbiddenCoords ++= capturedPositions.toSet
+          forbidden ++= capturedPositions.toSet
 
-          if (currentPlayer == Stone.Black) capturedBlack += capturedNow
-          else capturedWhite += capturedNow
+          if (player == Stone.Black) blackCaptures += capturedNow
+          else whiteCaptures += capturedNow
 
           println(s"Capturadas $capturedNow peça(s)!")
-          println(s"Total capturas – Preto: $capturedBlack  |  Branco: $capturedWhite")
+          println(s"Total capturas – Preto: $blackCaptures  |  Branco: $whiteCaptures")
         }
 
-        if (capturedBlack >= CaptureLimit) {
+        if (blackCaptures >= CaptureLimit) {
           println("\n*** Parabéns! Jogador Preto venceu por capturas! ***")
           gameOver = true
-        } else if (capturedWhite >= CaptureLimit) {
+        } else if (whiteCaptures >= CaptureLimit) {
           println("\n*** Computador (Branco) venceu por capturas! ***")
           gameOver = true
         } else {
-          board = afterCapture
-          lstOpenCoords = generateCoords(size).filter { case (r, c) => board(r)(c) == Stone.Empty }
-          currentPlayer = if (currentPlayer == Stone.Black) Stone.White else Stone.Black
-          rand = nextRand
+          gameBoard = afterCapture
+          openCoords = generateCoords(size).filter { case (r, c) => gameBoard(r)(c) == Stone.Empty }
+          player = if (player == Stone.Black) Stone.White else Stone.Black
+          random = nextRand
         }
       }
     }
 
     if (!gameOver) {
-      printBoard(board)
+      printBoard(gameBoard)
       println("\nTabuleiro cheio. Fim do jogo (ninguém atingiu o limite de capturas).")
     }
   }
+
+  def main(args: Array[String]): Unit = {
+    val size = 9
+    val board: Board = List.fill(size)(List.fill(size)(Stone.Empty))
+    val lstOpenCoords = generateCoords(size)
+    val rand = MyRandom(42)
+    val currentPlayer = Stone.Black
+    val capturedBlack = 0
+    val capturedWhite = 0
+    val forbiddenCoords = Set.empty[Coord2D]
+
+    run(size, board, lstOpenCoords, rand, currentPlayer, capturedBlack, capturedWhite, forbiddenCoords)
+  }
+
 }
