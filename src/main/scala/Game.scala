@@ -83,60 +83,68 @@ object Game {
 
   def captureGroupStones(board: Board, player: Stone.Value): (Board, Int) = {
     val size = board.length
-    val visited = Array.fill(size, size)(false)
-    var captured = Set.empty[Coord2D]
     val opponent = if (player == Stone.Black) Stone.White else Stone.Black
 
     def inBounds(r: Int, c: Int): Boolean =
       r >= 0 && c >= 0 && r < size && c < size
 
-    def dfs(r: Int, c: Int): (Set[Coord2D], Boolean) = {
-      val stack = collection.mutable.Stack((r, c))
-      var group = Set.empty[Coord2D]
-      var hasLiberty = false
-
-      while (stack.nonEmpty) {
-        val (x, y) = stack.pop()
-        if (inBounds(x, y) && !visited(x)(y) && board(x)(y) == opponent) {
-          visited(x)(y) = true
-          group += ((x, y))
-
-          val neighbors = List((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))
-          for ((nx, ny) <- neighbors) {
-            if (inBounds(nx, ny)) {
-              board(nx)(ny) match {
-                case Stone.Empty => hasLiberty = true
-                case s if s == opponent && !visited(nx)(ny) =>
-                  stack.push((nx, ny))
-                case _ => // ignore
+    def dfs(r: Int, c: Int, visited: Set[Coord2D]): (Set[Coord2D], Boolean, Set[Coord2D]) = {
+      def loop(stack: List[Coord2D], group: Set[Coord2D], hasLiberty: Boolean, visitedAcc: Set[Coord2D]): (Set[Coord2D], Boolean, Set[Coord2D]) = {
+        stack match {
+          case Nil => (group, hasLiberty, visitedAcc)
+          case (x, y) :: rest =>
+            if (!inBounds(x, y) || visitedAcc.contains((x, y)) || board(x)(y) != opponent)
+              loop(rest, group, hasLiberty, visitedAcc)
+            else {
+              val newVisited = visitedAcc + ((x, y))
+              val newGroup = group + ((x, y))
+              val neighbors = List((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))
+              val libertyFound = neighbors.exists { case (nx, ny) =>
+                inBounds(nx, ny) && board(nx)(ny) == Stone.Empty
               }
+              val nextStack = neighbors.filter { case (nx, ny) =>
+                inBounds(nx, ny) && board(nx)(ny) == opponent && !newVisited.contains((nx, ny))
+              } ::: rest
+              loop(nextStack, newGroup, hasLiberty || libertyFound, newVisited)
             }
-          }
         }
       }
 
-      (group, hasLiberty)
+      loop(List((r, c)), Set(), false, visited)
     }
 
-    for {
-      r <- 0 until size
-      c <- 0 until size
-      if board(r)(c) == opponent && !visited(r)(c)
-    } {
-      val (group, hasLiberty) = dfs(r, c)
-      if (!hasLiberty) {
-        captured ++= group
+    def process(r: Int, c: Int, visited: Set[Coord2D], captured: Set[Coord2D]): (Set[Coord2D], Set[Coord2D]) = {
+      if (visited.contains((r, c)) || board(r)(c) != opponent)
+        (visited, captured)
+      else {
+        val (group, hasLiberty, newVisited) = dfs(r, c, visited)
+        if (!hasLiberty)
+          (newVisited, captured ++ group)
+        else
+          (newVisited, captured)
       }
     }
+
+    def iterateAll(r: Int, c: Int, visited: Set[Coord2D], captured: Set[Coord2D]): (Set[Coord2D], Set[Coord2D]) = {
+      if (r >= size) (visited, captured)
+      else if (c >= size) iterateAll(r + 1, 0, visited, captured)
+      else {
+        val (newVisited, newCaptured) = process(r, c, visited, captured)
+        iterateAll(r, c + 1, newVisited, newCaptured)
+      }
+    }
+
+    val (_, capturedStones) = iterateAll(0, 0, Set(), Set())
 
     val newBoard = board.zipWithIndex.map { case (row, r) =>
       row.zipWithIndex.map { case (stone, c) =>
-        if (captured.contains((r, c))) Stone.Empty else stone
+        if (capturedStones.contains((r, c))) Stone.Empty else stone
       }
     }
 
-    (newBoard, captured.size)
+    (newBoard, capturedStones.size)
   }
+
 
   def main(args: Array[String]): Unit = {
     val size = 9
