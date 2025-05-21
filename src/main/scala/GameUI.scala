@@ -38,7 +38,7 @@ class GameUI extends Application {
     for (i <- 0 until size; j <- 0 until size) {
       val cell = new StackPane()
       cell.setPrefSize(40, 40)
-      cell.setStyle("-fx-border-color: black; -fx-background-color: beige;")
+      cell.setStyle("-fx-border-color: black; -fx-background-color: pink;")
 
       val x = i
       val y = j
