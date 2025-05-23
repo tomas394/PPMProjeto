@@ -10,7 +10,7 @@ object Game {
   type Board = List[List[Stone.Value]]
   type Coord2D = (Int, Int)
   val CaptureLimit = 3
-  val TurnTimeLimitS = 10
+  val TurnTimeLimitS = 15
   val size = 9
   val board: Board = List.fill(size)(List.fill(size)(Stone.Empty))
   val lstOpenCoords = generateCoords(size)
@@ -44,12 +44,15 @@ object Game {
                         forbiddenCoords: Set[Coord2D]
                       )
 
-  def undo(history: List[GameState]): Option[(GameState, List[GameState])] = {
-    history.headOption match {
-      case Some(state) => Some((state, history.drop(1)))
-      case None        => None
+  def undo(currentState: GameState, history: List[GameState]): Option[(GameState, List[GameState])] = {
+    history match {
+      case prevState :: rest =>
+        Some((prevState.copy(), rest))
+      case Nil =>
+        None
     }
   }
+
 
   def randomMove(lstOpenCoords: List[Coord2D], rand: MyRandom): (Coord2D, MyRandom) = {
     val size = lstOpenCoords.size
@@ -239,7 +242,7 @@ object Game {
           forbidden = newForbidden
           history = Nil
         } else if (coordOpt.isEmpty) {
-          undo(history) match {
+          undo(GameState(gameBoard, openCoords, random, player, blackCaptures, whiteCaptures, forbidden), history) match {
             case Some((prev, newHist)) =>
               gameBoard = prev.board
               openCoords = prev.openCoords
@@ -254,7 +257,8 @@ object Game {
               println("Não há jogadas anteriores para anular.")
           }
         } else {
-          history = List(GameState(gameBoard, openCoords, random, player, blackCaptures, whiteCaptures, forbidden))
+          val currentState = GameState(gameBoard, openCoords, random, player, blackCaptures, whiteCaptures, forbidden)
+          history = currentState :: history
           val coord = coordOpt.get
           val (tmpBoard, tmpCoords) = play(gameBoard, player, coord, openCoords, forbidden)
           if (tmpBoard != gameBoard) {
