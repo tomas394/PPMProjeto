@@ -10,7 +10,7 @@ object Game {
   type Board = List[List[Stone.Value]]
   type Coord2D = (Int, Int)
   val CaptureLimit = 5
-  val TurnTimeLimitMs = 15000
+  val TurnTimeLimitS = 15
 
   object Stone extends Enumeration {
     type Stone = Value
@@ -36,7 +36,7 @@ object Game {
                         forbiddenCoords: Set[Coord2D]
                       )
 
-  def tryUndo(history: List[GameState]): Option[(GameState, List[GameState])] = {
+  def undo(history: List[GameState]): Option[(GameState, List[GameState])] = {
     history.headOption match {
       case Some(state) => Some((state, history.drop(1)))
       case None        => None
@@ -74,14 +74,14 @@ object Game {
 
   def getUserMove(player: Stone.Value, lstOpenCoords: List[Coord2D], rand: MyRandom): (Option[Coord2D], MyRandom) = {
     println(s"\nJogador ${if (player == Stone.Black) "Preto (B)" else "Branco (W)"}: Introduz coordenadas (linha coluna), 'r' para aleatória, ou 'undo':")
-    println(s"Tens ${TurnTimeLimitMs / 1000} segundos para jogar...")
+    println(s"Tens ${TurnTimeLimitS} segundos para jogar...")
 
     val futureInput = Future {
       scala.io.StdIn.readLine().trim
     }
 
     try {
-      val input = Await.result(futureInput, Duration(TurnTimeLimitMs, MILLISECONDS)).toLowerCase
+      val input = Await.result(futureInput, Duration(TurnTimeLimitS, SECONDS)).toLowerCase
       input match {
         case "r" =>
           val (coord, newRand) = randomMove(lstOpenCoords, rand)
@@ -217,7 +217,7 @@ object Game {
         val (coordOpt, nextRand) = getUserMove(player, openCoords.filterNot(forbidden.contains), random)
 
         if (coordOpt.isEmpty) {
-          tryUndo(history) match {
+          undo(history) match {
             case Some((prev, newHist)) =>
               gameBoard = prev.board
               openCoords = prev.openCoords
@@ -290,6 +290,20 @@ object Game {
       printBoard(gameBoard)
       println("\nTabuleiro cheio. Fim do jogo (ninguém atingiu o limite de capturas).")
     }
+  }
+
+  def generateEmptyBoard(size: Int): Board = {
+    List.fill(size)(List.fill(size)(Stone.Empty))
+  }
+
+  def resetGame(size: Int = 9, seed: Long = 42): (Board, List[Coord2D], MyRandom, Stone.Value, Set[Coord2D]) = {
+    val board = generateEmptyBoard(size)
+    val openCoords = generateCoords(size)
+    val rand = MyRandom(seed)
+    val currentPlayer = Stone.Black
+    val forbiddenCoords = Set.empty[Coord2D]
+
+    (board, openCoords, rand, currentPlayer, forbiddenCoords)
   }
 
   def main(args: Array[String]): Unit = {
