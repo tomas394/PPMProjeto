@@ -9,8 +9,8 @@ object Game {
 
   type Board = List[List[Stone.Value]]
   type Coord2D = (Int, Int)
-  val CaptureLimit = 5
-  val TurnTimeLimitS = 15
+  val CaptureLimit = 3
+  val TurnTimeLimitS = 10
   val size = 9
   val board: Board = List.fill(size)(List.fill(size)(Stone.Empty))
   val lstOpenCoords = generateCoords(size)
@@ -319,7 +319,7 @@ object Game {
     List.fill(size)(List.fill(size)(Stone.Empty))
   }
 
-  def resetGame(size: Int = size, seed: Long = 42): (Board, List[Coord2D], MyRandom, Stone.Value, Set[Coord2D]) = {
+  def resetGame(size: Int = size, seed: Long = rand.seed): (Board, List[Coord2D], MyRandom, Stone.Value, Set[Coord2D]) = {
     val board = generateEmptyBoard(size)
     val openCoords = generateCoords(size)
     val rand = MyRandom(seed)
