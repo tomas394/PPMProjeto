@@ -36,6 +36,13 @@ object Game {
                         forbiddenCoords: Set[Coord2D]
                       )
 
+  def tryUndo(history: List[GameState]): Option[(GameState, List[GameState])] = {
+    history.headOption match {
+      case Some(state) => Some((state, history.drop(1)))
+      case None        => None
+    }
+  }
+
   def randomMove(lstOpenCoords: List[Coord2D], rand: MyRandom): (Coord2D, MyRandom) = {
     val size = lstOpenCoords.size
     val (index, newRand) = rand.nextInt(size)
@@ -210,8 +217,8 @@ object Game {
         val (coordOpt, nextRand) = getUserMove(player, openCoords.filterNot(forbidden.contains), random)
 
         if (coordOpt.isEmpty) {
-          history.headOption match {
-            case Some(prev) =>
+          tryUndo(history) match {
+            case Some((prev, newHist)) =>
               gameBoard = prev.board
               openCoords = prev.openCoords
               random = prev.rand
@@ -219,7 +226,7 @@ object Game {
               blackCaptures = prev.capturedBlack
               whiteCaptures = prev.capturedWhite
               forbidden = prev.forbiddenCoords
-              history = Nil
+              history = newHist
               println("Última jogada anulada (jogador e computador).")
             case None =>
               println("Não há jogadas anteriores para anular.")
