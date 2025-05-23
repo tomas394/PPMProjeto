@@ -72,8 +72,8 @@ object Game {
     }
   }
 
-  def getUserMove(player: Stone.Value, lstOpenCoords: List[Coord2D], rand: MyRandom): (Option[Coord2D], MyRandom) = {
-    println(s"\nJogador ${if (player == Stone.Black) "Preto (B)" else "Branco (W)"}: Introduz coordenadas (linha coluna), 'r' para aleatória, ou 'undo':")
+  def getUserMove(player: Stone.Value, lstOpenCoords: List[Coord2D], rand: MyRandom): (Option[Coord2D], MyRandom, Boolean) = {
+    println(s"\nJogador ${if (player == Stone.Black) "Preto (B)" else "Branco (W)"}: Introduz coordenadas (linha coluna), 'r' para aleatória, 'undo' ou 'reset':")
     println(s"Tens ${TurnTimeLimitS} segundos para jogar...")
 
     val futureInput = Future {
@@ -86,16 +86,18 @@ object Game {
         case "r" =>
           val (coord, newRand) = randomMove(lstOpenCoords, rand)
           println(s"Jogada aleatória: ${coord._1} ${coord._2}")
-          (Some(coord), newRand)
+          (Some(coord), newRand, false)
         case "undo" =>
-          (None, rand)
+          (None, rand, false)
+        case "reset" =>
+          (None, rand, true)
         case _ =>
           val parts = input.split(" ")
           if (parts.length != 2 || !parts.forall(_.forall(_.isDigit))) {
             println("Entrada inválida.")
             getUserMove(player, lstOpenCoords, rand)
           } else {
-            ((Some((parts(0).toInt, parts(1).toInt)), rand))
+            ((Some((parts(0).toInt, parts(1).toInt)), rand, false))
           }
       }
     } catch {
@@ -103,9 +105,10 @@ object Game {
         println("\nTempo esgotado. Jogada aleatória será feita.")
         val (coord, newRand) = randomMove(lstOpenCoords, rand)
         println(s"Jogada aleatória: ${coord._1} ${coord._2}")
-        (Some(coord), newRand)
+        (Some(coord), newRand, false)
     }
   }
+
 
   def play(board: Board, player: Stone.Value, coord: Coord2D, lstOpenCoords: List[Coord2D], forbiddenCoords: Set[Coord2D]): (Board, List[Coord2D]) = {
     if (!lstOpenCoords.contains(coord) || forbiddenCoords.contains(coord)) {
@@ -214,9 +217,20 @@ object Game {
       printBoard(gameBoard)
 
       if (player == Stone.Black) {
-        val (coordOpt, nextRand) = getUserMove(player, openCoords.filterNot(forbidden.contains), random)
+        val (coordOpt, nextRand, wantsReset) = getUserMove(player, openCoords.filterNot(forbidden.contains), random)
 
-        if (coordOpt.isEmpty) {
+        if (wantsReset) {
+          println("\n*** Jogo reiniciado! ***\n")
+          val (newBoard, newOpenCoords, newRand, newPlayer, newForbidden) = resetGame(size)
+          gameBoard = newBoard
+          openCoords = newOpenCoords
+          random = newRand
+          player = newPlayer
+          blackCaptures = 0
+          whiteCaptures = 0
+          forbidden = newForbidden
+          history = Nil
+        } else if (coordOpt.isEmpty) {
           undo(history) match {
             case Some((prev, newHist)) =>
               gameBoard = prev.board
@@ -291,6 +305,7 @@ object Game {
       println("\nTabuleiro cheio. Fim do jogo (ninguém atingiu o limite de capturas).")
     }
   }
+
 
   def generateEmptyBoard(size: Int): Board = {
     List.fill(size)(List.fill(size)(Stone.Empty))

@@ -1,16 +1,29 @@
+import Game.{Board, Coord2D}
 import javafx.fxml.FXML
 import javafx.scene.control.{Button, TextField}
+import javafx.scene.layout.BorderPane
 class Controller {
+  
+  private var board: Board = Game.generateEmptyBoard(9)
+  private var rand: Game.MyRandom = Game.MyRandom(42)
+  private var openCoords: List[Coord2D] = Game.generateCoords(9)
+  private var currentPlayer: Game.Stone.Value = Game.Stone.Black
+  private var forbidden: Set[Coord2D] = Set.empty
 
   @FXML
-  private var button1: Button = _
+  private var borderPane: BorderPane = borderPane
+  
+  @FXML
+  private var randomPlayButton: Button = randomPlayButton
 
   @FXML
-  private var textField1: TextField = _
+  private var resetButton: Button = resetButton
 
-
-  def onButton1Clicked(): Unit = {
-    textField1.setText("Joga Bonito")
+  @FXML
+  private var undoButton: Button = undoButton
+  
+  def onRandomPlayButtonClicked(): Unit = {
+    Game.randomMove(openCoords, rand)
   }
 }
 
