@@ -11,6 +11,14 @@ object Game {
   type Coord2D = (Int, Int)
   val CaptureLimit = 5
   val TurnTimeLimitS = 15
+  val size = 9
+  val board: Board = List.fill(size)(List.fill(size)(Stone.Empty))
+  val lstOpenCoords = generateCoords(size)
+  val rand = MyRandom(42)
+  val currentPlayer = Stone.Black
+  val capturedBlack = 0
+  val capturedWhite = 0
+  val forbiddenCoords = Set.empty[Coord2D]
 
   object Stone extends Enumeration {
     type Stone = Value
@@ -311,7 +319,7 @@ object Game {
     List.fill(size)(List.fill(size)(Stone.Empty))
   }
 
-  def resetGame(size: Int = 9, seed: Long = 42): (Board, List[Coord2D], MyRandom, Stone.Value, Set[Coord2D]) = {
+  def resetGame(size: Int = size, seed: Long = 42): (Board, List[Coord2D], MyRandom, Stone.Value, Set[Coord2D]) = {
     val board = generateEmptyBoard(size)
     val openCoords = generateCoords(size)
     val rand = MyRandom(seed)
@@ -322,15 +330,6 @@ object Game {
   }
 
   def main(args: Array[String]): Unit = {
-    val size = 9
-    val board: Board = List.fill(size)(List.fill(size)(Stone.Empty))
-    val lstOpenCoords = generateCoords(size)
-    val rand = MyRandom(42)
-    val currentPlayer = Stone.Black
-    val capturedBlack = 0
-    val capturedWhite = 0
-    val forbiddenCoords = Set.empty[Coord2D]
-
     run(size, board, lstOpenCoords, rand, currentPlayer, capturedBlack, capturedWhite, forbiddenCoords)
   }
 }
