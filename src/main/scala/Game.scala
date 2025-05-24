@@ -9,16 +9,6 @@ object Game {
 
   type Board = List[List[Stone.Value]]
   type Coord2D = (Int, Int)
-  val CaptureLimit = 3
-  val TurnTimeLimitS = 15
-  val size = 9
-  val board: Board = List.fill(size)(List.fill(size)(Stone.Empty))
-  val lstOpenCoords = generateCoords(size)
-  val rand = MyRandom(42)
-  val currentPlayer = Stone.Black
-  val capturedBlack = 0
-  val capturedWhite = 0
-  val forbiddenCoords = Set.empty[Coord2D]
 
   object Stone extends Enumeration {
     type Stone = Value
@@ -38,34 +28,33 @@ object Game {
                         board: Board,
                         openCoords: List[Coord2D],
                         rand: MyRandom,
-                        currentPlayer: Stone,
+                        currentPlayer: Stone.Value,
                         capturedBlack: Int,
                         capturedWhite: Int,
                         forbiddenCoords: Set[Coord2D]
                       )
 
-  def undo(currentState: GameState, history: List[GameState]): Option[(GameState, List[GameState])] = {
-    history match {
-      case prevState :: rest =>
-        Some((prevState.copy(), rest))
-      case Nil =>
-        None
+  def askForInt(prompt: String, default: Int, min: Int = 1): Int = {
+    println(s"$prompt (padrão: $default):")
+    val input = scala.io.StdIn.readLine().trim
+    if (input.isEmpty) default
+    else {
+      try {
+        val value = input.toInt
+        if (value < min) {
+          println(s"Por favor, insira um número maior ou igual a $min.")
+          askForInt(prompt, default, min)
+        } else value
+      } catch {
+        case _: NumberFormatException =>
+          println("Entrada inválida. Tente novamente.")
+          askForInt(prompt, default, min)
+      }
     }
   }
 
-
-  def randomMove(lstOpenCoords: List[Coord2D], rand: MyRandom): (Coord2D, MyRandom) = {
-    val size = lstOpenCoords.size
-    val (index, newRand) = rand.nextInt(size)
-    val selectedCoord = lstOpenCoords(index)
-    (selectedCoord, newRand)
-  }
-
-  def generateCoords(size: Int): List[Coord2D] = {
-    List.range(0, size).flatMap { row =>
-      List.range(0, size).map { col => (row, col) }
-    }
-  }
+  def generateCoords(size: Int): List[Coord2D] =
+    List.range(0, size).flatMap(row => List.range(0, size).map(col => (row, col)))
 
   def printBoard(board: Board): Unit = {
     println("  " + board.indices.mkString(" "))
@@ -83,43 +72,57 @@ object Game {
     }
   }
 
-  def getUserMove(player: Stone.Value, lstOpenCoords: List[Coord2D], rand: MyRandom): (Option[Coord2D], MyRandom, Boolean) = {
-    println(s"\nJogador ${if (player == Stone.Black) "Preto (B)" else "Branco (W)"}: Introduz coordenadas (linha coluna), 'r' para aleatória, 'undo' ou 'reset':")
-    println(s"Tens ${TurnTimeLimitS} segundos para jogar...")
+  def getUserMove(player: Stone.Value, lstOpenCoords: List[Coord2D], rand: MyRandom, turnTimeLimit: Int, capturedBlack: Int, capturedWhite: Int): (Option[Coord2D], MyRandom, Boolean) = {
+    println(s"\nJogador ${if (player == Stone.Black) "Preto (B)" else "Branco (W)"}: Introduz coordenadas (linha coluna), 'r' para aleatória, 'undo', 'reset' ou 'capturas':")
+    println(s"Tens ${turnTimeLimit} segundos para jogar...")
 
-    val futureInput = Future {
-      scala.io.StdIn.readLine().trim
-    }
+    def prompt(): (Option[Coord2D], MyRandom, Boolean) = {
+      val futureInput = Future {
+        scala.io.StdIn.readLine().trim
+      }
 
-    try {
-      val input = Await.result(futureInput, Duration(TurnTimeLimitS, SECONDS)).toLowerCase
-      input match {
-        case "r" =>
+      try {
+        val input = Await.result(futureInput, Duration(turnTimeLimit, SECONDS)).toLowerCase
+        input match {
+          case "r" =>
+            val (coord, newRand) = randomMove(lstOpenCoords, rand)
+            println(s"Jogada aleatória: ${coord._1} ${coord._2}")
+            (Some(coord), newRand, false)
+          case "undo" =>
+            (None, rand, false)
+          case "reset" =>
+            (None, rand, true)
+          case "capturas" =>
+            println(s"Capturas | Preto (B): $capturedBlack  | Branco (W): $capturedWhite")
+            prompt() // Volta a pedir input sem penalizar tempo
+          case _ =>
+            val parts = input.split(" ")
+            if (parts.length != 2 || !parts.forall(_.forall(_.isDigit))) {
+              println("Entrada inválida.")
+              prompt()
+            } else {
+              ((Some((parts(0).toInt, parts(1).toInt)), rand, false))
+            }
+        }
+      } catch {
+        case _: TimeoutException =>
+          println("\nTempo esgotado. Jogada aleatória será feita.")
           val (coord, newRand) = randomMove(lstOpenCoords, rand)
           println(s"Jogada aleatória: ${coord._1} ${coord._2}")
           (Some(coord), newRand, false)
-        case "undo" =>
-          (None, rand, false)
-        case "reset" =>
-          (None, rand, true)
-        case _ =>
-          val parts = input.split(" ")
-          if (parts.length != 2 || !parts.forall(_.forall(_.isDigit))) {
-            println("Entrada inválida.")
-            getUserMove(player, lstOpenCoords, rand)
-          } else {
-            ((Some((parts(0).toInt, parts(1).toInt)), rand, false))
-          }
       }
-    } catch {
-      case _: TimeoutException =>
-        println("\nTempo esgotado. Jogada aleatória será feita.")
-        val (coord, newRand) = randomMove(lstOpenCoords, rand)
-        println(s"Jogada aleatória: ${coord._1} ${coord._2}")
-        (Some(coord), newRand, false)
     }
+
+    prompt()
   }
 
+
+  def randomMove(lstOpenCoords: List[Coord2D], rand: MyRandom): (Coord2D, MyRandom) = {
+    val size = lstOpenCoords.size
+    val (index, newRand) = rand.nextInt(size)
+    val selectedCoord = lstOpenCoords(index)
+    (selectedCoord, newRand)
+  }
 
   def play(board: Board, player: Stone.Value, coord: Coord2D, lstOpenCoords: List[Coord2D], forbiddenCoords: Set[Coord2D]): (Board, List[Coord2D]) = {
     if (!lstOpenCoords.contains(coord) || forbiddenCoords.contains(coord)) {
@@ -138,8 +141,7 @@ object Game {
     val size = board.length
     val opponent = if (player == Stone.Black) Stone.White else Stone.Black
 
-    def inBounds(r: Int, c: Int): Boolean =
-      r >= 0 && c >= 0 && r < size && c < size
+    def inBounds(r: Int, c: Int): Boolean = r >= 0 && c >= 0 && r < size && c < size
 
     def dfs(r: Int, c: Int, visited: Set[Coord2D]): (Set[Coord2D], Boolean, Set[Coord2D]) = {
       def loop(stack: List[Coord2D], group: Set[Coord2D], hasLiberty: Boolean, visitedAcc: Set[Coord2D]): (Set[Coord2D], Boolean, Set[Coord2D]) = {
@@ -162,7 +164,6 @@ object Game {
             }
         }
       }
-
       loop(List((r, c)), Set(), false, visited)
     }
 
@@ -188,25 +189,28 @@ object Game {
     }
 
     val (_, capturedStones) = iterateAll(0, 0, Set(), Set())
-
     val newBoard = board.zipWithIndex.map { case (row, r) =>
       row.zipWithIndex.map { case (stone, c) =>
         if (capturedStones.contains((r, c))) Stone.Empty else stone
       }
     }
-
     (newBoard, capturedStones.size)
   }
 
+  def generateEmptyBoard(size: Int): Board =
+    List.fill(size)(List.fill(size)(Stone.Empty))
+
   def run(
            size: Int,
-           board: List[List[Stone]],
+           board: Board,
            lstOpenCoords: List[Coord2D],
            rand: MyRandom,
-           currentPlayer: Stone,
+           currentPlayer: Stone.Value,
            capturedBlack: Int,
            capturedWhite: Int,
-           forbiddenCoords: Set[Coord2D]
+           forbiddenCoords: Set[Coord2D],
+           captureLimit: Int,
+           turnTimeLimit: Int
          ): Unit = {
 
     var gameBoard = board
@@ -222,24 +226,24 @@ object Game {
 
     println("=== Bem‑vindo ao jogo ===")
     println("Preto (B) és tu; Computador é Branco (W)")
-    println(s"Quem capturar $CaptureLimit peças primeiro vence.\n")
+    println(s"Quem capturar $captureLimit peças primeiro vence.\n")
 
     while (openCoords.nonEmpty && !gameOver) {
       printBoard(gameBoard)
 
       if (player == Stone.Black) {
-        val (coordOpt, nextRand, wantsReset) = getUserMove(player, openCoords.filterNot(forbidden.contains), random)
+        val (coordOpt, nextRand, wantsReset) = getUserMove(player, openCoords.filterNot(forbidden.contains), random, turnTimeLimit, blackCaptures, whiteCaptures)
 
         if (wantsReset) {
           println("\n*** Jogo reiniciado! ***\n")
-          val (newBoard, newOpenCoords, newRand, newPlayer, newForbidden) = resetGame(size)
-          gameBoard = newBoard
-          openCoords = newOpenCoords
-          random = newRand
-          player = newPlayer
+          val board = generateEmptyBoard(size)
+          gameBoard = board
+          openCoords = generateCoords(size)
+          random = MyRandom(rand.seed)
+          player = Stone.Black
           blackCaptures = 0
           whiteCaptures = 0
-          forbidden = newForbidden
+          forbidden = Set.empty
           history = Nil
         } else if (coordOpt.isEmpty) {
           undo(GameState(gameBoard, openCoords, random, player, blackCaptures, whiteCaptures, forbidden), history) match {
@@ -260,7 +264,7 @@ object Game {
           val currentState = GameState(gameBoard, openCoords, random, player, blackCaptures, whiteCaptures, forbidden)
           history = currentState :: history
           val coord = coordOpt.get
-          val (tmpBoard, tmpCoords) = play(gameBoard, player, coord, openCoords, forbidden)
+          val (tmpBoard, _) = play(gameBoard, player, coord, openCoords, forbidden)
           if (tmpBoard != gameBoard) {
             val (afterCapture, capturedNow) = captureGroupStones(tmpBoard, player)
             if (capturedNow > 0) {
@@ -283,7 +287,7 @@ object Game {
         val validCoords = openCoords.filterNot(forbidden.contains)
         val (coord, nextRand) = randomMove(validCoords, random)
         println(s"\nComputador (W) jogou: ${coord._1} ${coord._2}")
-        val (tmpBoard, tmpCoords) = play(gameBoard, player, coord, openCoords, forbidden)
+        val (tmpBoard, _) = play(gameBoard, player, coord, openCoords, forbidden)
         if (tmpBoard != gameBoard) {
           val (afterCapture, capturedNow) = captureGroupStones(tmpBoard, player)
           if (capturedNow > 0) {
@@ -303,10 +307,10 @@ object Game {
         }
       }
 
-      if (blackCaptures >= CaptureLimit) {
+      if (blackCaptures >= captureLimit) {
         println("\n*** Parabéns! Jogador Preto venceu por capturas! ***")
         gameOver = true
-      } else if (whiteCaptures >= CaptureLimit) {
+      } else if (whiteCaptures >= captureLimit) {
         println("\n*** Computador (Branco) venceu por capturas! ***")
         gameOver = true
       }
@@ -318,22 +322,24 @@ object Game {
     }
   }
 
-
-  def generateEmptyBoard(size: Int): Board = {
-    List.fill(size)(List.fill(size)(Stone.Empty))
-  }
-
-  def resetGame(size: Int = size, seed: Long = rand.seed): (Board, List[Coord2D], MyRandom, Stone.Value, Set[Coord2D]) = {
-    val board = generateEmptyBoard(size)
-    val openCoords = generateCoords(size)
-    val rand = MyRandom(seed)
-    val currentPlayer = Stone.Black
-    val forbiddenCoords = Set.empty[Coord2D]
-
-    (board, openCoords, rand, currentPlayer, forbiddenCoords)
+  def undo(currentState: GameState, history: List[GameState]): Option[(GameState, List[GameState])] = {
+    history match {
+      case prevState :: rest => Some((prevState.copy(), rest))
+      case Nil => None
+    }
   }
 
   def main(args: Array[String]): Unit = {
-    run(size, board, lstOpenCoords, rand, currentPlayer, capturedBlack, capturedWhite, forbiddenCoords)
+    println("=== Configuração do Jogo ===")
+
+    val size = askForInt("Tamanho do tabuleiro (ex: 9 para 9x9)", 9, 3)
+    val turnTimeLimit = askForInt("Tempo máximo por jogada (em segundos)", 15)
+    val captureLimit = askForInt("Número de peças capturadas para vencer", 3)
+
+    val board = generateEmptyBoard(size)
+    val openCoords = generateCoords(size)
+    val rand = MyRandom(42)
+
+    run(size, board, openCoords, rand, Stone.Black, 0, 0, Set.empty, captureLimit, turnTimeLimit)
   }
 }

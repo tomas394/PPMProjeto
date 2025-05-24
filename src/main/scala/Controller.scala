@@ -6,9 +6,10 @@ import javafx.scene.paint.Color
 import javafx.scene.shape.Circle
 class Controller {
   
-  private var board: Board = Game.generateEmptyBoard(Game.size)
+  private val defaultSize = 19 
+  private var board: Board = Game.generateEmptyBoard(defaultSize)
   private var rand: Game.MyRandom = Game.MyRandom(42)
-  private var openCoords: List[Coord2D] = Game.generateCoords(Game.size)
+  private var openCoords: List[Coord2D] = Game.generateCoords(defaultSize)
   private var currentPlayer: Game.Stone.Value = Game.Stone.Black
   private var forbidden: Set[Coord2D] = Set.empty
 
@@ -32,7 +33,12 @@ class Controller {
   }
 
   def onResetButtonClicked(): Unit = {
-    Game.resetGame(Game.size, rand.seed)
+    board = Game.generateEmptyBoard(defaultSize)
+    rand = Game.MyRandom(rand.seed)
+    openCoords = Game.generateCoords(defaultSize)
+    currentPlayer = Game.Stone.Black
+    forbidden = Set.empty
+    createBoardUI(defaultSize)
   }
 
 /*  def onUndoButtonClicked(): Unit = {
