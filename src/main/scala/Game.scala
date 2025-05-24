@@ -70,9 +70,10 @@ object Game {
     }
   }
 
-  def getUserMove(player: Stone.Value, lstOpenCoords: List[Coord2D], rand: MyRandom, turnTimeLimit: Int, capturedBlack: Int, capturedWhite: Int): (Option[Coord2D], MyRandom, Boolean) = {
+  def getUserMove(player: Stone.Value, lstOpenCoords: List[Coord2D], rand: MyRandom, timeLimit: Int, capturedBlack: Int, capturedWhite: Int): (Option[Coord2D], MyRandom, Boolean)
+  = {
     println(s"\nJogador ${if (player == Stone.Black) "Preto (B)" else "Branco (W)"}: Introduz coordenadas (linha coluna), 'r' para aleatória, 'undo', 'reset' ou 'capturas':")
-    println(s"Tens ${turnTimeLimit} segundos para jogar...")
+    println(s"Tens ${timeLimit} segundos para jogar...")
 
     def prompt(): (Option[Coord2D], MyRandom, Boolean) = {
       val futureInput = Future {
@@ -80,7 +81,7 @@ object Game {
       }
 
       try {
-        val input = Await.result(futureInput, Duration(turnTimeLimit, SECONDS)).toLowerCase
+        val input = Await.result(futureInput, Duration(timeLimit, SECONDS)).toLowerCase
         input match {
           case "r" =>
             val (coord, newRand) = randomMove(lstOpenCoords, rand)
@@ -91,7 +92,7 @@ object Game {
           case "reset" =>
             (None, rand, true)
           case "capturas" =>
-            println(s"Capturas | Preto (B): $capturedBlack  | Branco (W): $capturedWhite")
+            println(s"Capturas | Preto (B): $capturedBlack | Branco (W): $capturedWhite")
             prompt()
           case _ =>
             val parts = input.split(" ")
@@ -198,132 +199,126 @@ object Game {
   def generateEmptyBoard(size: Int): Board =
     List.fill(size)(List.fill(size)(Stone.Empty))
 
-  def run(
-           size: Int,
-           board: Board,
-           lstOpenCoords: List[Coord2D],
-           rand: MyRandom,
-           currentPlayer: Stone.Value,
-           capturedBlack: Int,
-           capturedWhite: Int,
-           forbiddenCoords: Set[Coord2D],
-           captureLimit: Int,
-           turnTimeLimit: Int
-         ): Unit = {
-
-    var gameBoard = board
-    var openCoords = lstOpenCoords
-    var random = rand
-    var player = currentPlayer
-    var blackCaptures = capturedBlack
-    var whiteCaptures = capturedWhite
-    var forbidden = forbiddenCoords
-    var gameOver = false
-
-    var history = List.empty[GameState]
-
-    println("=== Bem‑vindo ao jogo ===")
-    println("Preto (B) és tu; Computador é Branco (W)")
-    println(s"Quem capturar $captureLimit peças primeiro vence.\n")
-
-    while (openCoords.nonEmpty && !gameOver) {
-      printBoard(gameBoard)
-
-      if (player == Stone.Black) {
-        val (coordOpt, nextRand, wantsReset) = getUserMove(player, openCoords.filterNot(forbidden.contains), random, turnTimeLimit, blackCaptures, whiteCaptures)
-
-        if (wantsReset) {
-          println("\n*** Jogo reiniciado! ***\n")
-          val board = generateEmptyBoard(size)
-          gameBoard = board
-          openCoords = generateCoords(size)
-          random = MyRandom(rand.seed)
-          player = Stone.Black
-          blackCaptures = 0
-          whiteCaptures = 0
-          forbidden = Set.empty
-          history = Nil
-        } else if (coordOpt.isEmpty) {
-          undo(GameState(gameBoard, openCoords, random, player, blackCaptures, whiteCaptures, forbidden), history) match {
-            case Some((prev, newHist)) =>
-              gameBoard = prev.board
-              openCoords = prev.openCoords
-              random = prev.rand
-              player = prev.currentPlayer
-              blackCaptures = prev.capturedBlack
-              whiteCaptures = prev.capturedWhite
-              forbidden = prev.forbiddenCoords
-              history = newHist
-              println("Última jogada anulada (jogador e computador).")
-            case None =>
-              println("Não há jogadas anteriores para anular.")
-          }
-        } else {
-          val currentState = GameState(gameBoard, openCoords, random, player, blackCaptures, whiteCaptures, forbidden)
-          history = currentState :: history
-          val coord = coordOpt.get
-          val (tmpBoard, _) = play(gameBoard, player, coord, openCoords, forbidden)
-          if (tmpBoard != gameBoard) {
-            val (afterCapture, capturedNow) = captureGroupStones(tmpBoard, player)
-            if (capturedNow > 0) {
-              val capturedPositions = for {
-                r <- 0 until size
-                c <- 0 until size
-                if gameBoard(r)(c) != Stone.Empty && afterCapture(r)(c) == Stone.Empty
-              } yield (r, c)
-              forbidden ++= capturedPositions.toSet
-              blackCaptures += capturedNow
-              println(s"Capturadas $capturedNow peça(s)!")
-            }
-            gameBoard = afterCapture
-            openCoords = generateCoords(size).filter { case (r, c) => gameBoard(r)(c) == Stone.Empty }
-            player = Stone.White
-            random = nextRand
-          }
-        }
-      } else {
-        val validCoords = openCoords.filterNot(forbidden.contains)
-        val (coord, nextRand) = randomMove(validCoords, random)
-        println(s"\nComputador (W) jogou: ${coord._1} ${coord._2}")
-        val (tmpBoard, _) = play(gameBoard, player, coord, openCoords, forbidden)
-        if (tmpBoard != gameBoard) {
-          val (afterCapture, capturedNow) = captureGroupStones(tmpBoard, player)
-          if (capturedNow > 0) {
-            val capturedPositions = for {
-              r <- 0 until size
-              c <- 0 until size
-              if gameBoard(r)(c) != Stone.Empty && afterCapture(r)(c) == Stone.Empty
-            } yield (r, c)
-            forbidden ++= capturedPositions.toSet
-            whiteCaptures += capturedNow
-            println(s"Capturadas $capturedNow peça(s)!")
-          }
-          gameBoard = afterCapture
-          openCoords = generateCoords(size).filter { case (r, c) => gameBoard(r)(c) == Stone.Empty }
-          player = Stone.Black
-          random = nextRand
-        }
-      }
-
-      if (blackCaptures >= captureLimit) {
-        println("\n*** Parabéns! Jogador Preto venceu por capturas! ***")
-        gameOver = true
-      } else if (whiteCaptures >= captureLimit) {
-        println("\n*** Computador (Branco) venceu por capturas! ***")
-        gameOver = true
-      }
-    }
-
-    if (!gameOver) {
-      printBoard(gameBoard)
-      println("\nTabuleiro cheio. Fim do jogo (ninguém atingiu o limite de capturas).")
+  def undo(currentState: GameState, history: List[GameState]): Option[(GameState, List[GameState])] = {
+    history match {
+      case computerState :: playerState :: rest =>
+        Some((playerState.copy(), rest))
+      case playerState :: Nil =>
+        Some((playerState.copy(), Nil))
+      case Nil =>
+        None
     }
   }
 
-  def undo(currentState: GameState, history: List[GameState]): Option[(GameState, List[GameState])] = {
-    history match {
-      case prevState :: rest => Some((prevState.copy(), rest))
-      case Nil => None
+  def run(size: Int, board: Board, openCoords: List[Coord2D], rand: MyRandom,
+          currentPlayer: Stone.Value, capturedBlack: Int, capturedWhite: Int,
+          forbiddenCoords: Set[Coord2D], captureLimit: Int, timeLimit: Int): Unit = {
+    println("=== Bem‑vindo ao jogo ===")
+    println("Preto (B) és tu; Computador é Branco (W)")
+
+    val initialState = GameState(
+      board = board,
+      openCoords = openCoords,
+      rand = rand,
+      currentPlayer = currentPlayer,
+      capturedBlack = capturedBlack,
+      capturedWhite = capturedWhite,
+      forbiddenCoords = forbiddenCoords
+    )
+
+    gameLoop(initialState, Nil, size, captureLimit, timeLimit)
+  }
+
+  def gameLoop(state: GameState, history: List[GameState], size: Int, captureLimit: Int, timeLimit: Int): Unit = {
+    val newHistory = state :: history
+    if (state.openCoords.isEmpty) {
+      printBoard(state.board)
+      println("\nTabuleiro cheio. Fim do jogo (ninguém atingiu o limite de capturas).")
+      return
+    }
+
+    printBoard(state.board)
+    println(s"Capturas: Preto = ${state.capturedBlack}, Branco = ${state.capturedWhite}")
+
+    if (state.capturedBlack >= captureLimit) {
+      println("\n*** Parabéns! Jogador Preto venceu por capturas! ***")
+      return
+    } else if (state.capturedWhite >= captureLimit) {
+      println("\n*** Computador (Branco) venceu por capturas! ***")
+      return
+    }
+
+    val nextState = if (state.currentPlayer == Stone.Black) {
+      val (coordOpt, nextRand, wantsReset) = getUserMove(state.currentPlayer, state.openCoords.filterNot(state.forbiddenCoords.contains), state.rand, timeLimit, state.capturedBlack, state.capturedWhite)
+
+      if (wantsReset) {
+        println("\n*** Jogo reiniciado! ***\n")
+        val resetBoard = generateEmptyBoard(size)
+        val resetCoords = generateCoords(size)
+        val resetRand = MyRandom(state.rand.seed)
+        val resetState = GameState(resetBoard, resetCoords, resetRand, Stone.Black, 0, 0, Set.empty)
+        return gameLoop(resetState, Nil, size, captureLimit, timeLimit)
+      }
+
+      coordOpt match {
+        case None =>
+          undo(state, history) match {
+            case Some((prev, newHist)) =>
+              println("Última jogada anulada (jogador e computador).")
+              gameLoop(prev, newHist, size, captureLimit, timeLimit)
+            case None =>
+              println("Não há jogadas anteriores para anular.")
+              gameLoop(state, history, size, captureLimit, timeLimit)
+          }
+        case Some(coord) =>
+          val newHistory = state :: history
+          val (tmpBoard, tmpCoords) = play(state.board, state.currentPlayer, coord, state.openCoords, state.forbiddenCoords)
+          if (tmpBoard != state.board) {
+            val (afterCapture, capturedNow) = captureGroupStones(tmpBoard, state.currentPlayer)
+            val capturedPositions = for {
+              r <- 0 until size
+              c <- 0 until size
+              if state.board(r)(c) != Stone.Empty && afterCapture(r)(c) == Stone.Empty
+            } yield (r, c)
+            val updatedState = state.copy(
+              board = afterCapture,
+              openCoords = generateCoords(size).filter { case (r, c) => afterCapture(r)(c) == Stone.Empty },
+              rand = nextRand,
+              currentPlayer = Stone.White,
+              capturedBlack = state.capturedBlack + capturedNow,
+              forbiddenCoords = state.forbiddenCoords ++ capturedPositions
+            )
+            gameLoop(updatedState, newHistory, size, captureLimit, timeLimit)
+          } else {
+            println("Jogada inválida.")
+            gameLoop(state, history, size, captureLimit, timeLimit)
+          }
+      }
+    } else {
+      val validCoords = state.openCoords.filterNot(state.forbiddenCoords.contains)
+      val (coord, nextRand) = randomMove(validCoords, state.rand)
+      println(s"\nComputador (W) jogou: ${coord._1} ${coord._2}")
+
+      val (tmpBoard, tmpCoords) = play(state.board, state.currentPlayer, coord, state.openCoords, state.forbiddenCoords)
+      if (tmpBoard != state.board) {
+        val (afterCapture, capturedNow) = captureGroupStones(tmpBoard, state.currentPlayer)
+        val capturedPositions = for {
+          r <- 0 until size
+          c <- 0 until size
+          if state.board(r)(c) != Stone.Empty && afterCapture(r)(c) == Stone.Empty
+        } yield (r, c)
+        val updatedState = state.copy(
+          board = afterCapture,
+          openCoords = generateCoords(size).filter { case (r, c) => afterCapture(r)(c) == Stone.Empty },
+          rand = nextRand,
+          currentPlayer = Stone.Black,
+          capturedWhite = state.capturedWhite + capturedNow,
+          forbiddenCoords = state.forbiddenCoords ++ capturedPositions
+        )
+        gameLoop(updatedState, state :: history, size, captureLimit, timeLimit)
+      } else {
+        gameLoop(state, history, size, captureLimit, timeLimit)
+      }
     }
   }
 
