@@ -92,7 +92,7 @@ object Game {
             (None, rand, true)
           case "capturas" =>
             println(s"Capturas | Preto (B): $capturedBlack  | Branco (W): $capturedWhite")
-            prompt() // Volta a pedir input sem penalizar tempo
+            prompt()
           case _ =>
             val parts = input.split(" ")
             if (parts.length != 2 || !parts.forall(_.forall(_.isDigit))) {
